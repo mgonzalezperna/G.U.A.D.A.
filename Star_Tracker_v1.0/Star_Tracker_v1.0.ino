@@ -12,6 +12,7 @@
 #include <Wire.h>
 #include <DS3232RTC.h> 
 
+#define rtc_power_pin 11
 #define STEPS 2038 // the number of steps in one revolution of your motor (28BYJ-48)
 #define ALRM0 0x08          // Alarm register 0
 #define ALRM1 0x0b          // Alarm register 1
@@ -58,9 +59,9 @@
 #define servoPin 9
 unsigned long step_delay_ms = solar_ms_seconds_per_step;
 int DEC_gr;
-int HA_hs;
-int HA_mm;
-int HA_ss;
+unsigned long HA_hs;
+unsigned long HA_mm;
+unsigned long HA_ss;
 Servo servo;  
 Stepper stepper(STEPS, 8, 6, 7, 5);
 
@@ -113,6 +114,20 @@ int getInt (String msg) //reads input
   return retval;
 }
 
+
+time_t tmConvert_t(int YYYY, byte MM, byte DD, byte hh, byte mm, byte ss)
+{
+  tmElements_t tmSet;
+  tmSet.Year = YYYY;
+  tmSet.Month = MM;
+  tmSet.Day = DD;
+  tmSet.Hour = hh;
+  tmSet.Minute = mm;
+  tmSet.Second = ss;
+  return makeTime(tmSet); 
+}
+
+
 // rutina de inicio ********************************************************
 void set_start_position (int DEC_gr, int HA_hs, int HA_mm, int HA_ss)
 {
@@ -126,13 +141,14 @@ void set_start_position (int DEC_gr, int HA_hs, int HA_mm, int HA_ss)
   delay (500);
   step_position = rtcRead (0);
 
-
-  Serial.println("Position: " + step_position);
+  time_t initTime = tmConvert_t(0,1,1,HA_hs,HA_mm,HA_ss);
+ 
+  //Serial.println("Position: " + step_position);
   
   stepper.setSpeed(6); // 6 rpm
-  stepper.step(-step_position);
-  
-  stepper.step(time_to_position(HA_hs * 3600 + HA_mm * 60 + HA_ss));
+  //stepper.step(-step_position);
+
+  stepper.step(time_to_position(initTime));
   rtcWrite (0, 0);  // save
 }
 
@@ -147,6 +163,7 @@ int time_to_position (time_t t)
     to calibrate the pointer to a known position on a known longitude on a
     known date-time.
   */
+ 
   uint64_t ms;
 
   ms = t * 1000ull;               // in ms units and 64 bits
