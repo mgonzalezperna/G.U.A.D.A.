@@ -10,10 +10,9 @@
 #include <Stepper.h>
 #include <Time.h>
 #include <Wire.h>
-#include "DS3232RTC.h"
+#include <DS3232RTC.h> 
 
 #define STEPS 2038 // the number of steps in one revolution of your motor (28BYJ-48)
-#define rtc_power_pin 8         // powers the RTC chip
 #define ALRM0 0x08          // Alarm register 0
 #define ALRM1 0x0b          // Alarm register 1
 
@@ -30,7 +29,7 @@
 
   https://en.wikipedia.org/wiki/Sidereal_time states a mean sidereal day is
   23:56:4.0916 solar seconds. A solar day is 86400 solar seconds. Note that
-  a sidereal day is 86400 sidereal seconds!
+  a sidereal day is 86400 sidereal seconds!x
 
 */
 #define solar_ms_seconds_per_sidereal_day 86164092ull
@@ -57,7 +56,7 @@
 
 #define motor_pin   5     // motor driver pin (plus next 3)
 #define servoPin 9
-int step_delay_ms = solar_ms_seconds_per_step;
+unsigned long step_delay_ms = solar_ms_seconds_per_step;
 int DEC_gr;
 int HA_hs;
 int HA_mm;
@@ -74,7 +73,7 @@ void setup ()
   Serial.begin (9600);
   Serial.setTimeout(32000);
   //rtcWrite (0, 0);
-  set_start_position(180 - 34,0,0,0);
+  set_start_position(180 - 34,0,0,0); //points Celestial South Pole
   for (int n = 0; n <= 3; n++){ // Define los pines 2, 3, 4, 5 como outputs
     pinMode (motor_pin + n, OUTPUT);
   }
@@ -101,14 +100,10 @@ void setup ()
 // loop ************************************************************************
 void loop ()
 {
-    // Set the plugin function to get the time from the RTC. As the processor
-    // is powered down, including Timer0, the SyncProvider needs to be set
-    // in the loop() as it forces a resync of the the Time.
-    //setSyncProvider (RTC.get);      // Set provider to RTC
     step_to();       // adjust pointer when enough power
 }
 
-int getInt (String msg)
+int getInt (String msg) //reads input
 {
   int retval;
   Serial.print (msg);
@@ -127,13 +122,17 @@ void set_start_position (int DEC_gr, int HA_hs, int HA_mm, int HA_ss)
     servo.write(servoAngle);              
     delay(50);
   }
-  
+ 
   delay (500);
   step_position = rtcRead (0);
-  stepper.setSpeed(6); // 6 rpm
-  stepper.step(step_position);
+
+
+  Serial.println("Position: " + step_position);
   
-  stepper.step(-time_to_position(HA_hs * 3600 + HA_mm * 60 + HA_ss));
+  stepper.setSpeed(6); // 6 rpm
+  stepper.step(-step_position);
+  
+  stepper.step(time_to_position(HA_hs * 3600 + HA_mm * 60 + HA_ss));
   rtcWrite (0, 0);  // save
 }
 
@@ -175,17 +174,17 @@ void step_to ()
   time_ms = millis ();
   time_ms += step_delay_ms;
   
-  if ( (long ) (millis () < time_ms)){;
-  Serial.print((millis () < time_ms));
-    stepper.setSpeed(1); // 1 rpm
-    stepper.step(-1);
-    step_position++;
-    if (step_position = STEPS) {
-      stepper.setSpeed(6); // 6 rpm
-      stepper.step(2038);
-    }
+  while ( (long ) (millis () < time_ms)){
+    delay(1);
+   };
+  stepper.setSpeed(1); // 1 rpm
+  stepper.step(1);
+  step_position++;
+  //if (step_position = STEPS) {
+  //  stepper.setSpeed(6); // 6 rpm
+  //  stepper.step(-STEPS);
+  //}
   rtcWrite (0, step_position);  // save
-  }
 }
 
 
